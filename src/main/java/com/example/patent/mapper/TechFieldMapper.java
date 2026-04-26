@@ -1,0 +1,9 @@
+package com.example.patent.mapper;
+
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.example.patent.entity.TechField;
+import org.apache.ibatis.annotations.Mapper;
+
+@Mapper
+public interface TechFieldMapper extends BaseMapper<TechField> {
+}

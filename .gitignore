@@ -1,0 +1,62 @@
+# === Build & Output ===
+target/
+patent-frontend/dist/
+patent-frontend/node_modules/
+*.class
+*.jar
+*.war
+*.log
+
+# === Deployment (不推送部署文件) ===
+docker/
+docker-deploy-package.zip
+*.tar
+*.tar.gz
+*.zip
+Dockerfile
+docker-compose.yml
+docker-entrypoint.sh
+DEPLOY.md
+
+# === Sensitive Config (隐藏关键账号密码、API Key) ===
+config/ai-model.json
+src/main/resources/application.yml
+
+# === Runtime Data ===
+reports/
+upload/
+*.db
+*.sqlite
+
+# === IDE ===
+.idea/
+.claude/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# === OS ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Temp Files ===
+temp-*
+*.tmp
+*.bak
+*.swp
+*~
+
+# === Node ===
+node_modules/
+package-lock.json
+
+# === Environment ===
+.env
+.env.*
+!.env.example
+
+# === Logs ===
+logs/
+*.log
