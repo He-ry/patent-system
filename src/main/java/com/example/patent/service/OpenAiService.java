@@ -59,6 +59,10 @@ public class OpenAiService {
         Map<String, Object> fc = getFileConfig();
         Object val = fc.get(key);
         if (val instanceof String && !((String) val).isBlank()) return (String) val;
+        if ("model".equals(key)) {
+            val = fc.get("modelName");
+            if (val instanceof String && !((String) val).isBlank()) return (String) val;
+        }
         return defaultValue;
     }
 
