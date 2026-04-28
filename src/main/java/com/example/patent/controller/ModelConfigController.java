@@ -14,7 +14,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class ModelConfigController {
 
-    private static final String CONFIG_FILE = "config/ai-model.json";
+    private static final String CONFIG_FILE = "/app/config/ai-model.json";
 
     @GetMapping("/model")
     public Map<String, Object> getModelConfig() {
