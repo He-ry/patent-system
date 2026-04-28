@@ -117,18 +117,47 @@ public class SqlValidator {
 
     private String askAiToFix(String sql, String error) {
         String prompt = """
-                下面的 SQL 执行报错，请修复。
-                只返回修复后的 SQL，不要解释、不要 markdown。
-
-                原 SQL：
+                你是专业的 SQL 工程师，需要修复一个执行失败的 SQL 查询。
+                
+                ## 数据库表结构
                 %s
-
-                错误：
+                
                 %s
-                """.formatted(sql, error);
+                
+                ## 执行失败的 SQL
+                ```sql
+                %s
+                ```
+                
+                ## 错误信息
+                %s
+                
+                ## 要求
+                1. 分析错误原因
+                2. 根据表结构修复 SQL
+                3. 只返回修复后的 SQL，不要解释，不要 markdown 代码块
+                4. 确保 SQL 语法正确，字段名和表名正确
+                """.formatted(
+                DatabaseSchema.PATENT_INFO_TABLE,
+                DatabaseSchema.PATENT_INFO_FIELD_TABLE + "\n" + DatabaseSchema.TABLE_RELATION,
+                sql,
+                error
+        );
 
         try {
-            return openAiService.chat("你是专业的 SQL 工程师，修复有语法错误的 SQL。", prompt);
+            String fixedSql = openAiService.chat("你是专业的 SQL 工程师，修复有语法错误的 SQL。", prompt);
+            if (fixedSql != null) {
+                fixedSql = fixedSql.trim();
+                if (fixedSql.startsWith("```")) {
+                    int start = fixedSql.indexOf('\n') + 1;
+                    int end = fixedSql.lastIndexOf("```");
+                    if (end > start) {
+                        fixedSql = fixedSql.substring(start, end).trim();
+                    }
+                }
+            }
+            log.info("[SQL自纠] 原SQL: {}, 修复后: {}", sql, fixedSql);
+            return fixedSql;
         } catch (Exception e) {
             log.warn("AI 自纠 SQL 失败: {}", e.getMessage());
             return sql;

@@ -76,7 +76,7 @@ public class AiReportGenerator {
             | field_value | varchar(255) | 字段值                                                                                                                                  |
             | seq | int | 顺序                                                                                                                                   |
             
-            多值字段统一存储在 patent_info_field：
+            多值字段枚举
             - inventor：发明人，按 `|` 拆分
             - technical_problem：[标]技术问题短语，按 `|` 拆分
             - technical_effect：[标]技术功效短语，按 `|` 拆分

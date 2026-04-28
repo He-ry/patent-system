@@ -126,22 +126,11 @@ public class SkillRouter {
                 |--------|------|--------------------------------------------------------------------------------------------------------------------------------------|
                 | id | varchar(50) | 主键                                                                                                                                   |
                 | patent_id | varchar(50) | 专利ID(外键)                                                                                                                             |
-                | field_type | enum | 字段类型见下方“多值字段枚举” |
+                | field_type | enum |  可选值 inventor：发明人 technical_problem：[标]技术问题短语 technical_effect：[标]技术功效短语 technical_effect：[标]技术功效短语 ipc_classification：IPC分类号 cpc_classification：CPC分类号 technical_subject_classification：技术主题分类  application_field_classification：应用领域分类
+                ipc_main_class_interpretation：IPC主分类号(部)释义  strategic_industry_classification：战略新兴产业分类  technical_field：技术领域，
                 | field_value | varchar(255) | 字段值                                                                                                                                  |
-                | seq | int | 顺序                                                                                                                                   |
-                
-                多值字段统一存储在 patent_info_field：
-                - inventor：发明人，按 `|` 拆分
-                - technical_problem：[标]技术问题短语，按 `|` 拆分
-                - technical_effect：[标]技术功效短语，按 `|` 拆分
-                - ipc_classification：IPC分类号，按 `|` 拆分
-                - cpc_classification：CPC分类号，按 `|` 拆分
-                - technical_subject_classification：技术主题分类，按 `|` 拆分
-                - application_field_classification：应用领域分类，按 `|` 拆分
-                - ipc_main_class_interpretation：IPC主分类号(部)释义，按 `；` 或 `;` 拆分
-                - strategic_industry_classification：战略新兴产业分类，按 `、` 拆分
-                - technical_field：技术领域，保留为兼容字段，按 `|` 拆分
-
+                | seq | int | 顺序      |
+                                                                                                                                             |
                 输出 JSON 格式：
                 {
                   "needsSkill": true,

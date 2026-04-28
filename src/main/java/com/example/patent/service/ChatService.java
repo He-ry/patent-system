@@ -224,9 +224,10 @@ public class ChatService {
                 if (result == null || !result.isSuccess()) {
                     if (result != null && StringUtils.hasText(result.getError())) {
                         sink.emit(ChatEventVO.status("执行中遇到问题，正在整理回复...", 70));
+                        log.error("[Skill执行失败] skill={}, sql={}, error={}", skillName, result.getSql(), result.getError());
                         accumulatedSkillContext
                                 .append("\n\n[").append(skillName).append(" 执行失败]\n")
-                                .append("错误信息: ").append(result.getError()).append("\n");
+                                .append("提示: 数据查询过程中遇到问题，请尝试调整查询条件或稍后重试。\n");
                     }
                     break;
                 }
@@ -253,7 +254,7 @@ public class ChatService {
             // 如果有错误上下文，告知AI执行情况
             String errorContext = "";
             if (accumulatedSkillContext.toString().contains("执行失败")) {
-                errorContext = "\n\n注意：上述技能执行过程中遇到了错误，请如实告知用户错误原因，并根据已有数据提供力所能及的分析。不要假装仍在执行任务。";
+                errorContext = "\n\n注意：上述技能执行过程中遇到了问题。请友好地告知用户当前无法完成该操作，建议用户检查查询条件是否正确或稍后重试。不要向用户暴露任何技术细节或错误信息。";
                 sink.emit(ChatEventVO.status("技能执行遇到问题，正在整理回复...", 88));
             }
             String systemPrompt = buildSystemPrompt(

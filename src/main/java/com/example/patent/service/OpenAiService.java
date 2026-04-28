@@ -28,12 +28,8 @@ public class OpenAiService {
     private final OpenAiConfig openAiConfig;
     private final ObjectMapper objectMapper;
 
-    @Value("${report.output.path:./reports}")
-    private String reportPath;
-
-    private String getConfigFile() {
-        return reportPath + "/../config/ai-model.json";
-    }
+    @Value("${report.output.path:./reports}/../config/ai-model.json")
+    private String configFile;
 
     private volatile Map<String, Object> fileConfigCache;
     private volatile long lastModified = 0;
@@ -41,7 +37,7 @@ public class OpenAiService {
 
     @SuppressWarnings("unchecked")
     private synchronized Map<String, Object> getFileConfig() {
-        File file = new File(getConfigFile());
+        File file = new File(configFile);
         if (!file.exists()) return Collections.emptyMap();
         if (file.lastModified() <= lastModified && System.currentTimeMillis() - cacheTime < 30000) {
             return fileConfigCache != null ? fileConfigCache : Collections.emptyMap();
@@ -51,7 +47,7 @@ public class OpenAiService {
             fileConfigCache = objectMapper.readValue(content, LinkedHashMap.class);
             lastModified = file.lastModified();
             cacheTime = System.currentTimeMillis();
-            log.debug("AI model config reloaded from: {}", getConfigFile());
+            log.debug("AI model config reloaded from: {}", configFile);
             return fileConfigCache;
         } catch (Exception e) {
             log.warn("Failed to load AI model config: {}", e.getMessage());
@@ -59,14 +55,19 @@ public class OpenAiService {
         }
     }
 
+    public void refreshConfig() {
+        synchronized (this) {
+            fileConfigCache = null;
+            lastModified = 0;
+            cacheTime = 0;
+        }
+        log.info("AI model config cache cleared, will reload on next access");
+    }
+
     private String resolve(String key, String defaultValue) {
         Map<String, Object> fc = getFileConfig();
         Object val = fc.get(key);
         if (val instanceof String && !((String) val).isBlank()) return (String) val;
-        if ("model".equals(key)) {
-            val = fc.get("modelName");
-            if (val instanceof String && !((String) val).isBlank()) return (String) val;
-        }
         return defaultValue;
     }
 

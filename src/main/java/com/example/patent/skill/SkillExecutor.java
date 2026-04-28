@@ -1,5 +1,6 @@
 package com.example.patent.skill;
 
+import com.example.patent.common.DatabaseSchema;
 import com.example.patent.report.service.ReportOrchestrator;
 import com.example.patent.service.OpenAiService;
 import com.example.patent.skill.domain.SkillExecutionResult;
@@ -79,6 +80,8 @@ public class SkillExecutor {
 
     private SkillExecutionResult executeSql(SkillRoutingResult routingResult, long start, Consumer<ChatEventVO> progressCallback) {
         String sql = routingResult.getSql();
+        String userQuery = routingResult.getOriginalQuery();
+        
         if (sql == null || sql.isBlank()) {
             return SkillExecutionResult.builder()
                     .success(false)
@@ -88,10 +91,11 @@ public class SkillExecutor {
         }
 
         sql = sql.trim();
-        sendSkillStatus(progressCallback, "sql-generator", "正在查询数据库...");
+        sendSkillStatus(progressCallback, "sql-generator", "正在验证SQL语法...");
 
         try {
             validateSql(sql);
+            sendSkillStatus(progressCallback, "sql-generator", "正在查询数据库...");
             List<Map<String, Object>> data = jdbcTemplate.queryForList(sql);
             String content = formatResult(data);
 
@@ -105,11 +109,13 @@ public class SkillExecutor {
                     .build();
         } catch (Exception e) {
             log.error("SQL执行失败: {}", e.getMessage());
-            // One retry: send error + SQL to AI for correction
-            String fixedSql = fixSqlWithAi(sql, e.getMessage());
+            sendSkillStatus(progressCallback, "sql-generator", "SQL执行失败，正在尝试自动修复...");
+            
+            String fixedSql = fixSqlWithAi(sql, e.getMessage(), userQuery, progressCallback);
             if (fixedSql != null && !fixedSql.equals(sql)) {
                 try {
                     validateSql(fixedSql);
+                    sendSkillStatus(progressCallback, "sql-generator", "修复成功，正在重新执行查询...");
                     List<Map<String, Object>> data = jdbcTemplate.queryForList(fixedSql);
                     return SkillExecutionResult.builder()
                             .success(true)
@@ -119,7 +125,9 @@ public class SkillExecutor {
                             .content(formatResult(data))
                             .executionTime(System.currentTimeMillis() - start)
                             .build();
-                } catch (Exception ignored) {}
+                } catch (Exception retryError) {
+                    log.error("修复后的SQL仍然失败: {}", retryError.getMessage());
+                }
             }
             return SkillExecutionResult.builder()
                     .success(false)
@@ -132,7 +140,8 @@ public class SkillExecutor {
     }
 
     private SkillExecutionResult executeDataAnalyzer(SkillRoutingResult routingResult, long start, Consumer<ChatEventVO> progressCallback) {
-        sendSkillStatus(progressCallback, "data-analyzer", "正在执行数据查询和统计...");
+        String userQuery = routingResult.getOriginalQuery();
+        sendSkillStatus(progressCallback, "data-analyzer", "正在准备数据查询...");
 
         try {
             Map<String, Object> execution = routingResult.getExecution();
@@ -151,8 +160,10 @@ public class SkillExecutor {
             }
 
             sql = adjustSqlLimit(sql, "data-analyzer");
+            sendSkillStatus(progressCallback, "data-analyzer", "正在验证SQL语法...");
             validateSql(sql);
 
+            sendSkillStatus(progressCallback, "data-analyzer", "正在执行数据查询和统计...");
             List<Map<String, Object>> data = jdbcTemplate.queryForList(sql);
             Map<String, Object> statistics = calculateDataStatistics(data);
 
@@ -167,6 +178,30 @@ public class SkillExecutor {
                     .build();
         } catch (Exception e) {
             log.error("data-analyzer执行失败: {}", e.getMessage());
+            sendSkillStatus(progressCallback, "data-analyzer", "查询失败，正在尝试自动修复...");
+            
+            String originalSql = routingResult.getSql();
+            String fixedSql = fixSqlWithAi(originalSql, e.getMessage(), userQuery, progressCallback);
+            if (fixedSql != null && !fixedSql.equals(originalSql)) {
+                try {
+                    fixedSql = adjustSqlLimit(fixedSql, "data-analyzer");
+                    validateSql(fixedSql);
+                    sendSkillStatus(progressCallback, "data-analyzer", "修复成功，正在重新执行查询...");
+                    List<Map<String, Object>> data = jdbcTemplate.queryForList(fixedSql);
+                    Map<String, Object> statistics = calculateDataStatistics(data);
+                    return SkillExecutionResult.builder()
+                            .success(true)
+                            .skillName("data-analyzer")
+                            .sql(fixedSql)
+                            .data(data)
+                            .statistics(statistics)
+                            .content(formatDataAnalysisResult(data, statistics))
+                            .executionTime(System.currentTimeMillis() - start)
+                            .build();
+                } catch (Exception retryError) {
+                    log.error("修复后的SQL仍然失败: {}", retryError.getMessage());
+                }
+            }
             return SkillExecutionResult.builder()
                     .success(false)
                     .skillName("data-analyzer")
@@ -280,10 +315,58 @@ public class SkillExecutor {
         return value == null ? "无" : value;
     }
 
-    private String fixSqlWithAi(String sql, String error) {
+    private String fixSqlWithAi(String sql, String error, String userQuery, Consumer<ChatEventVO> progressCallback) {
         try {
-            String prompt = "下面的 SQL 执行报错，请修复。只返回修复后的 SQL，不要解释。\n\n原 SQL：\n%s\n\n错误：\n%s".formatted(sql, error);
-            return openAiService.chat("你是专业的 SQL 工程师，修复有语法错误的 SQL。", prompt);
+            sendSkillStatus(progressCallback, "sql-generator", "正在分析错误原因...");
+            
+            String prompt = """
+                    你是专业的 SQL 工程师，需要修复一个执行失败的 SQL 查询。
+                    
+                    ## 用户原始问题
+                    %s
+                    
+                    ## 数据库表结构
+                    %s
+                    
+                    %s
+                    
+                    ## 执行失败的 SQL
+                    ```sql
+                    %s
+                    ```
+                    
+                    ## 错误信息
+                    %s
+                    
+                    ## 要求
+                    1. 分析错误原因
+                    2. 根据用户问题和表结构，修复 SQL
+                    3. 只返回修复后的 SQL，不要解释，不要 markdown 代码块
+                    4. 确保 SQL 语法正确，字段名和表名正确
+                    """.formatted(
+                    userQuery == null ? "无" : userQuery,
+                    DatabaseSchema.PATENT_INFO_TABLE,
+                    DatabaseSchema.PATENT_INFO_FIELD_TABLE + "\n" + DatabaseSchema.TABLE_RELATION,
+                    sql,
+                    error
+            );
+
+            sendSkillStatus(progressCallback, "sql-generator", "正在生成修复方案...");
+            String fixedSql = openAiService.chat("你是专业的 SQL 工程师，修复有语法错误的 SQL。", prompt);
+            
+            if (fixedSql != null) {
+                fixedSql = fixedSql.trim();
+                if (fixedSql.startsWith("```")) {
+                    int start = fixedSql.indexOf('\n') + 1;
+                    int end = fixedSql.lastIndexOf("```");
+                    if (end > start) {
+                        fixedSql = fixedSql.substring(start, end).trim();
+                    }
+                }
+            }
+            
+            log.info("[SQL修复] 原SQL: {}, 修复后: {}", sql, fixedSql);
+            return fixedSql;
         } catch (Exception e) {
             log.warn("AI 修复 SQL 失败: {}", e.getMessage());
             return null;

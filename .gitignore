@@ -1,5 +1,6 @@
 # === Build & Output ===
 target/
+BOOT-INF/
 patent-frontend/dist/
 patent-frontend/node_modules/
 *.class
@@ -31,6 +32,7 @@ upload/
 # === IDE ===
 .idea/
 .claude/
+.trae/
 .vscode/
 *.iml
 *.iws
