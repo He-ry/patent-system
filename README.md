@@ -1,103 +1,132 @@
-# 专利分析系统
+# 专利智能分析系统
 
-基于 Spring Boot + React + Neo4j + Elasticsearch 的专利数据管理与知识图谱分析平台。
+基于 AI 的专利数据分析与可视化平台，集成知识图谱、多维统计分析、智能对话与报告生成能力。
 
-## 技术架构
+## 功能概览
 
-| 层级 | 技术栈 |
-|------|--------|
-| **后端** | Spring Boot 3.2 + Java 21 + Maven |
-| **前端** | React 18 + TypeScript + Vite + Tailwind CSS |
-| **图数据库** | Neo4j 5.18 — 存储专利知识图谱、发明人协作网络 |
-| **搜索引擎** | Elasticsearch 8.15 — 全文检索、专利查重 |
-| **关系数据库** | MySQL 8.0 — 用户、专利元数据、系统配置 |
-| **图表服务** | ECharts + Puppeteer — 服务端图表渲染导出 |
-| **3D 可视化** | Three.js (React Three Fiber) — 专利图谱 3D 展示 |
-| **容器化** | Docker + Docker Compose — 一键部署 |
+### 智能助手
 
-## 项目结构
+支持自然语言交互，自动分析专利数据并生成专业分析报告。系统内置多轮对话、意图识别与流式输出。
 
+![智能助手](docs/images/ai-chat.png)
+
+### 专利知识图谱
+
+基于 Neo4j 构建专利实体关系网络，支持多维度筛选，直观展示技术关联与演化路径。
+
+![专利知识图谱](docs/images/knowledge-graph.png)
+
+### 3D 文本词云分析
+
+动态词云可视化，展示高频关键词分布，支持按申请人或发明人维度切换。
+
+![3D 词云](docs/images/word-cloud.png)
+
+### 多维统计分析
+
+提供柱状图、饼图、趋势折线图等多维度统计视图，支持自定义时间范围与分析维度。
+
+![多维统计分析](docs/images/statistics.png)
+
+## 技术栈
+
+| 层级 | 技术选型 |
+|------|----------|
+| 后端框架 | Spring Boot 3.2 + Java 21 |
+| 前端框架 | React 18 + TypeScript + Vite |
+| 数据库 | MySQL 8 |
+| 图数据库 | Neo4j 5 |
+| 搜索引擎 | Elasticsearch 8 |
+| AI 引擎 | OpenAI 兼容接口 |
+| 图表渲染 | ECharts + Puppeteer |
+| 报告生成 | Apache POI |
+| 容器化 | Docker + Docker Compose |
+
+## 系统架构
+
+```text
+React Frontend
+  -> Spring Boot Backend
+    -> MySQL
+    -> Neo4j
+    -> Elasticsearch
+    -> OpenAI Compatible API
+    -> ECharts Render Service
 ```
-patent-system/
-├── src/                     # Spring Boot 后端源码
-│   └── main/java/com/example/patent/
-│       ├── controller/      # REST API 控制器
-│       ├── service/         # 业务逻辑层
-│       ├── graph/           # Neo4j 图谱查询
-│       ├── mapper/          # MyBatis 数据访问
-│       ├── report/          # 报告生成
-│       ├── entity/          # 实体类
-│       └── config/          # Spring 配置
-├── patent-frontend/         # React 前端
-│   └── src/
-│       ├── components/      # UI 组件
-│       ├── chat/            # AI 对话模块
-│       └── api.ts           # API 接口定义
-├── echarts-server/          # ECharts 服务端渲染 (Node.js)
-├── docker/                  # Docker 离线部署包
-│   ├── images/              # 离线镜像包
-│   ├── initdb/              # 数据库初始化脚本
-│   ├── deploy.sh            # Linux 部署脚本
-│   ├── deploy-offline.sh    # 离线部署脚本
-│   └── docker-compose.yml   # 容器编排
-├── config/                  # 应用配置文件
-├── Dockerfile               # 应用多阶段构建
-└── docker-compose.yml       # 开发环境容器编排
+
+## 快速开始
+
+### 环境要求
+
+- Docker 与 Docker Compose
+- Node.js 18+
+- JDK 21+
+
+### 配置说明
+
+当前仓库使用以下真实配置文件：
+
+- `src/main/resources/application.yml`
+- `config/ai-model.json`
+
+启动前请按实际环境修改数据库、Neo4j、Elasticsearch 和 AI 接口配置。
+
+`config/ai-model.json` 示例：
+
+```json
+{
+  "apiKey": "sk-YOUR_API_KEY",
+  "modelName": "deepseek-chat",
+  "baseUrl": "https://api.deepseek.com"
+}
 ```
 
-## 核心功能
-
-- **专利数据管理** — 专利信息录入、导入、查询与统计分析
-- **知识图谱** — 基于 Neo4j 的发明人协作网络、技术领域关联分析
-- **全文检索** — Elasticsearch 驱动的专利全文搜索与相似度匹配
-- **图表报告** — 服务端 ECharts 渲染，支持 PDF/图片导出
-- **3D 可视化** — Three.js 驱动的专利图谱 3D 交互展示
-- **AI 辅助** — 集成 LLM 对话，智能专利解读与分析
-
-## 快速部署
-
-### 离线环境（推荐）
+### Docker 部署
 
 ```bash
-tar -xzf patent-system-offline-*.tar.gz
-cd docker
-bash deploy.sh
-```
-
-### 在线环境
-
-```bash
-# 1. 构建应用镜像
 docker build -t patent-system-app:1.0.0 .
-
-# 2. 启动全部服务
-cd docker && bash deploy.sh
+docker compose up -d
 ```
 
-### 开发环境
+访问地址：`http://localhost:3333`
+
+### 本地开发
 
 ```bash
 # 后端
 mvn spring-boot:run
 
 # 前端
-cd patent-frontend && npm run dev
+cd patent-frontend
+npm install
+npm run dev
 
-# 图表服务
-cd echarts-server && npm start
+# ECharts 渲染服务
+cd ../echarts-server
+npm install
+node server.js
 ```
 
-## 访问地址
+## 项目结构
 
-部署完成后访问: **http://localhost:3333**
+```text
+patent-system/
+├── src/main/java/com/example/patent/   # Spring Boot 后端
+├── patent-frontend/                    # React 前端
+├── echarts-server/                     # 图表渲染服务
+├── docs/                               # 文档与截图
+├── config/                             # 运行配置
+└── docker-entrypoint.sh                # 容器启动脚本
+```
 
-## 环境要求
+## 核心能力
 
-| 组件 | 版本要求 |
-|------|----------|
-| Docker Engine | ≥ 24.x |
-| Docker Compose | ≥ 2.20 |
-| 内存 | ≥ 8GB (推荐 16GB) |
-| 磁盘 | ≥ 30GB |
-| JDK (开发) | 21+ |
-| Node.js (开发) | 22+ |
+- AI 对话分析与流式输出
+- 专利知识图谱可视化
+- 多维度统计分析
+- 报告生成与导出
+- 运行时 AI 配置更新
+
+## License
+
+MIT
