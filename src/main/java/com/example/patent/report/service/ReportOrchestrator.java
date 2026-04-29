@@ -44,6 +44,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ReportOrchestrator {
+    private static final String SAFE_REPORT_ERROR_MESSAGE = "报告生成暂时失败，请稍后重试或调整报告主题。";
 
     private static final Pattern YEAR_RANGE_PATTERN = Pattern.compile("(20\\d{2})\\s*[到至-]\\s*(20\\d{2})");
     private static final Pattern SINGLE_YEAR_PATTERN = Pattern.compile("(20\\d{2})年");
@@ -101,8 +102,7 @@ public class ReportOrchestrator {
                     report.getTitle(), report.getExecutiveSummary(),
                     report.getConclusionSummary(), report.getKeyFindings(), builderChapters);
 
-            sendProgress(progressCallback, "正在生成 PDF 报告...", 75);
-            String pdfPath = builderService.buildPdf(htmlPath);
+            String pdfPath = null;
 
             sendProgress(progressCallback, "正在生成 Word 报告...", 85);
             String docxPath = builderService.buildDocx(
@@ -135,7 +135,7 @@ public class ReportOrchestrator {
                     + "**标题**: " + report.getTitle() + "\n"
                     + "**章节数**: " + report.getSections().size() + "\n"
                     + "**总字数**: " + totalWords + "\n\n"
-                    + "当前报告已经按照用户条件生成，可在下方预览或下载 HTML、PDF、Word 三种格式。";
+                    + "当前报告已经按照用户条件生成，可在下方预览或下载 HTML、Word 格式。";
 
             return SkillExecutionResult.builder()
                     .success(true).skillName("report-preview")
@@ -143,10 +143,10 @@ public class ReportOrchestrator {
                     .executionTime(System.currentTimeMillis() - start).build();
         } catch (Exception e) {
             log.error("报告生成失败", e);
-            sendProgress(progressCallback, "报告生成失败: " + e.getMessage(), 0);
+            sendProgress(progressCallback, SAFE_REPORT_ERROR_MESSAGE, 0);
             return SkillExecutionResult.builder()
                     .success(false).skillName("report-preview")
-                    .error(e.getMessage())
+                    .error(SAFE_REPORT_ERROR_MESSAGE)
                     .executionTime(System.currentTimeMillis() - start).build();
         }
     }

@@ -1,0 +1,25 @@
+数据库结构：
+{{schema}}
+
+用户问题：
+{{question}}
+
+最近对话：
+{{history}}
+
+请返回 JSON 数组：
+[
+  {
+    "title": "章节标题",
+    "objective": "一句话目标",
+    "sql": "完整 SELECT SQL",
+    "chartType": "bar|line|pie|horizontal_bar|stacked_bar|scatter|treemap|radar|null"
+  }
+]
+
+要求：
+1. 生成 8 到 20 个 SQL 任务。
+2. 每个 SQL 必须独立、完整、可执行。
+3. 使用 WHERE deleted=0 过滤有效数据。
+4. 涉及扩展字段时正确使用 patent_info_field JOIN patent_info。
+5. 数值字段需要时使用 CAST。

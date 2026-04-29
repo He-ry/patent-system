@@ -7,6 +7,7 @@ import java.util.List;
 
 @Data
 public class ChatEventVO {
+    private static final String DEFAULT_SAFE_ERROR = "当前处理遇到问题，请稍后重试或调整查询条件。";
     public static final String TYPE_START = "start";
     public static final String TYPE_CONTENT = "content";
     public static final String TYPE_STATUS = "status";
@@ -125,7 +126,11 @@ public class ChatEventVO {
     public static ChatEventVO error(String err) {
         ChatEventVO v = new ChatEventVO();
         v.setType(TYPE_ERROR);
-        v.setError(err);
+        v.setError(err == null || err.isBlank() ? DEFAULT_SAFE_ERROR : err);
         return v;
+    }
+
+    public static ChatEventVO safeError() {
+        return error(DEFAULT_SAFE_ERROR);
     }
 }

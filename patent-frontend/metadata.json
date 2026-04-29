@@ -1,0 +1,5 @@
+{
+  "name": "Excel Data Manager",
+  "description": "A beautiful, white-themed system for importing, viewing, editing, and exporting Excel data.",
+  "requestFramePermissions": []
+}

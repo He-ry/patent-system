@@ -22,7 +22,7 @@ public class ModelConfigController {
 
     private final OpenAiService openAiService;
     private final ObjectMapper objectMapper;
-    private static final String CONFIG_FILE = "config/ai-model.json";
+    public static final String CONFIG_FILE = "./config/ai-model.json";
 
     @GetMapping("/model")
     public Map<String, Object> getModelConfig() {

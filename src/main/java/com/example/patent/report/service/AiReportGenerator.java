@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -92,6 +94,7 @@ public class AiReportGenerator {
             关联: patent_info_field.patent_id = patent_info.id (一对多)
             使用: patent_info 中 deleted = 0 的为有效数据
             """;
+    private static final Pattern LIMIT_PATTERN = Pattern.compile("(?i)\\blimit\\s+(\\d+)\\b");
 
     private final OpenAiService openAiService;
     private final JdbcTemplate jdbcTemplate;
@@ -187,6 +190,9 @@ public class AiReportGenerator {
                 6. 使用 WHERE deleted=0 过滤有效数据
                 7. 涉及 patent_info_field 时，关联条件: patent_info_field.patent_id = patent_info.id
                 8. 数值字段（patent_value 等）使用 CAST(patent_value AS DECIMAL(20,2)) 转换
+                9. If the user asks for Top 100 / 前100 / 100人, ranking SQL must return 100 rows; do not use LIMIT 5, 10, 15, 20, or 30.
+                10. When querying inventors or IPC classifications from patent_info_field, always select pif.field_value with a clear alias, then GROUP BY/ORDER BY that alias or expression.
+                11. Do not reference columns or aliases outside their query scope; every ORDER BY alias must exist in the same SELECT result.
                 """.formatted(SCHEMA, question);
 
         if (!context.isEmpty()) {
@@ -195,11 +201,53 @@ public class AiReportGenerator {
 
         try {
             String response = openAiService.chatWithJson("你只返回 JSON。", prompt);
-            return objectMapper.readValue(response, new TypeReference<List<SqlTask>>() {});
+            List<SqlTask> tasks = objectMapper.readValue(response, new TypeReference<List<SqlTask>>() {});
+            return normalizeTopNTasks(question, tasks);
         } catch (Exception e) {
             log.warn("AI 生成 SQL 失败: {}", e.getMessage());
-            return generateFallbackTasks(question);
+            return normalizeTopNTasks(question, generateFallbackTasks(question));
         }
+    }
+
+    private List<SqlTask> normalizeTopNTasks(String question, List<SqlTask> tasks) {
+        if (!requiresTop100(question) || tasks == null || tasks.isEmpty()) return tasks;
+        return tasks.stream()
+                .map(task -> task.withSql(normalizeLimitTo100(task)))
+                .collect(Collectors.toList());
+    }
+
+    private boolean requiresTop100(String question) {
+        if (question == null) return false;
+        String q = question.toLowerCase(Locale.ROOT);
+        return q.contains("前100") || q.contains("top100") || q.contains("top 100") || q.contains("100人");
+    }
+
+    private String normalizeLimitTo100(SqlTask task) {
+        String sql = task.sql();
+        if (!StringUtils.hasText(sql)) return sql;
+        Matcher matcher = LIMIT_PATTERN.matcher(sql);
+        StringBuffer normalized = new StringBuffer();
+        boolean changed = false;
+        while (matcher.find()) {
+            int limit = Integer.parseInt(matcher.group(1));
+            if (limit < 100) {
+                matcher.appendReplacement(normalized, "LIMIT 100");
+                changed = true;
+            }
+        }
+        matcher.appendTail(normalized);
+        if (changed) return normalized.toString();
+
+        String taskText = ((task.title() == null ? "" : task.title()) + " "
+                + (task.objective() == null ? "" : task.objective())).toLowerCase(Locale.ROOT);
+        boolean rankingTask = taskText.contains("排名") || taskText.contains("排行")
+                || taskText.contains("top") || taskText.contains("前");
+        if (!rankingTask) return sql;
+
+        String trimmed = sql.trim();
+        String suffix = trimmed.endsWith(";") ? "" : ";";
+        String withoutSemicolon = trimmed.endsWith(";") ? trimmed.substring(0, trimmed.length() - 1).trim() : trimmed;
+        return withoutSemicolon + " LIMIT 100" + suffix;
     }
 
     private List<SqlTask> generateFallbackTasks(String question) {
@@ -311,7 +359,7 @@ public class AiReportGenerator {
                     根据数据特征决定是否生成图表以及图表类型。
                     数据章节: %s
                     分析目标: %s
-                    数据预览(前5行):
+                    数据预览(前20行):
                     %s
 
                     输出 JSON: {"chartType": "bar|line|pie|horizontal_bar|null", "reason": "简要原因"}
@@ -423,13 +471,16 @@ public class AiReportGenerator {
     private String formatDataPreview(List<Map<String, Object>> data) {
         if (data == null || data.isEmpty()) return "无数据";
         StringBuilder sb = new StringBuilder();
-        int limit = Math.min(5, data.size());
+        int limit = Math.min(20, data.size());
         for (int i = 0; i < limit; i++) {
             sb.append("行").append(i + 1).append(": ");
             sb.append(data.get(i).entrySet().stream()
                     .map(e -> e.getKey() + "=" + String.valueOf(e.getValue()).substring(0, Math.min(40, String.valueOf(e.getValue()).length())))
                     .collect(Collectors.joining(", ")));
             sb.append("\n");
+        }
+        if (data.size() > limit) {
+            sb.append("... 共 ").append(data.size()).append(" 行，仅展示前 ").append(limit).append(" 行用于分析预览\n");
         }
         return sb.toString();
     }
@@ -449,5 +500,9 @@ public class AiReportGenerator {
         return String.valueOf(value);
     }
 
-    private record SqlTask(String title, String objective, String sql, String chartType) {}
+    private record SqlTask(String title, String objective, String sql, String chartType) {
+        private SqlTask withSql(String nextSql) {
+            return new SqlTask(title, objective, nextSql, chartType);
+        }
+    }
 }

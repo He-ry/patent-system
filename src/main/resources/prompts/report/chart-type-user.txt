@@ -1,0 +1,7 @@
+章节标题：{{title}}
+分析目标：{{objective}}
+数据预览：
+{{dataPreview}}
+
+请输出 JSON：
+{"chartType": "bar|line|pie|horizontal_bar|null", "reason": ""}

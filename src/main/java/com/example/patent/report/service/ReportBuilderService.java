@@ -758,7 +758,7 @@ public class ReportBuilderService {
         StringBuilder sb = new StringBuilder("<table>\n<thead><tr>\n");
         for (String h : headers) sb.append("  <th>").append(esc(translateField(h))).append("</th>\n");
         sb.append("</tr></thead>\n<tbody>\n");
-        int n = Math.min(data.size(), 20);
+        int n = Math.min(data.size(), 100);
         for (int i = 0; i < n; i++) {
             sb.append("<tr>\n");
             for (String h : headers) {
@@ -891,7 +891,7 @@ public class ReportBuilderService {
     private void buildDocxTable(XWPFDocument doc, List<Map<String, Object>> data) {
         if (data.isEmpty()) return;
         List<String> headers = new ArrayList<>(data.get(0).keySet());
-        int n = Math.min(data.size(), 15);
+        int n = Math.min(data.size(), 100);
         XWPFTable t = doc.createTable(n + 1, headers.size());
         t.setWidth("100%");
         for (int c = 0; c < headers.size(); c++) {

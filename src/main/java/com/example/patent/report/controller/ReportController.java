@@ -88,11 +88,6 @@ public class ReportController {
         return downloadFile(reportId, "docx");
     }
 
-    @GetMapping("/{reportId}/download/pdf")
-    public ResponseEntity<Resource> downloadPdf(@PathVariable String reportId) {
-        return downloadFile(reportId, "pdf");
-    }
-
     @GetMapping("/{reportId}/view/html")
     public ResponseEntity<Resource> viewHtml(@PathVariable String reportId) {
         return serveFile(reportId, "html", true);
@@ -141,11 +136,6 @@ public class ReportController {
                     filepath = record.getDocxPath();
                     contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
                     extension = ".docx";
-                }
-                case "pdf" -> {
-                    filepath = record.getPdfPath();
-                    contentType = "application/pdf";
-                    extension = ".pdf";
                 }
                 default -> {
                     return ResponseEntity.badRequest().build();

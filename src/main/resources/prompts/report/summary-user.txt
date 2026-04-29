@@ -1,0 +1,6 @@
+报告标题：{{title}}
+用户需求：{{question}}
+章节内容：
+{{allAnalyses}}
+
+请撰写一段{{summaryType}}，不超过 200 字。

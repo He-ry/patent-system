@@ -1,0 +1,27 @@
+最近对话：
+{{history}}
+
+用户当前请求：
+{{query}}
+
+请输出 JSON：
+{
+  "titleHint": "",
+  "scope": "comprehensive|inventor|college|topic|custom",
+  "focus": ["trend"],
+  "requestedDimensions": ["annual-trend"],
+  "filters": {
+    "inventor": "",
+    "college": "",
+    "patentType": "",
+    "legalStatus": "",
+    "assignee": "",
+    "keyword": "",
+    "technicalField": "",
+    "ipcMainClassInterpretation": "",
+    "applicationYearStart": null,
+    "applicationYearEnd": null,
+    "grantYearStart": null,
+    "grantYearEnd": null
+  }
+}

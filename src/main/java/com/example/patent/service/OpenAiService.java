@@ -1,11 +1,11 @@
 package com.example.patent.service;
 
 import com.example.patent.config.OpenAiConfig;
+import com.example.patent.controller.ModelConfigController;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.MediaType;
@@ -28,8 +28,7 @@ public class OpenAiService {
     private final OpenAiConfig openAiConfig;
     private final ObjectMapper objectMapper;
 
-    @Value("${report.output.path:./reports}/../config/ai-model.json")
-    private String configFile;
+    private static final String CONFIG_FILE = ModelConfigController.CONFIG_FILE;
 
     private volatile Map<String, Object> fileConfigCache;
     private volatile long lastModified = 0;
@@ -37,7 +36,7 @@ public class OpenAiService {
 
     @SuppressWarnings("unchecked")
     private synchronized Map<String, Object> getFileConfig() {
-        File file = new File(configFile);
+        File file = new File(CONFIG_FILE);
         if (!file.exists()) return Collections.emptyMap();
         if (file.lastModified() <= lastModified && System.currentTimeMillis() - cacheTime < 30000) {
             return fileConfigCache != null ? fileConfigCache : Collections.emptyMap();
@@ -47,7 +46,7 @@ public class OpenAiService {
             fileConfigCache = objectMapper.readValue(content, LinkedHashMap.class);
             lastModified = file.lastModified();
             cacheTime = System.currentTimeMillis();
-            log.debug("AI model config reloaded from: {}", configFile);
+            log.debug("AI model config reloaded from: {}", CONFIG_FILE);
             return fileConfigCache;
         } catch (Exception e) {
             log.warn("Failed to load AI model config: {}", e.getMessage());

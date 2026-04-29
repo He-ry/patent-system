@@ -9,6 +9,7 @@ import com.example.patent.entity.MessageReference;
 import com.example.patent.mapper.ConversationMapper;
 import com.example.patent.mapper.ConversationMessageMapper;
 import com.example.patent.mapper.MessageReferenceMapper;
+import com.example.patent.prompt.PromptTemplateService;
 import com.example.patent.report.service.ReportRecordService;
 import com.example.patent.report.vo.ReportPreviewVO;
 import com.example.patent.skill.SkillExecutor;
@@ -48,6 +49,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ChatService {
+    private static final String SAFE_CHAT_ERROR_MESSAGE = "当前处理遇到问题，请稍后重试或调整查询条件。";
 
     private final OpenAiService openAiService;
     private final ElasticsearchClient esClient;
@@ -62,8 +64,10 @@ public class ChatService {
     private final PatentIndexService patentIndexService;
     private final ReportRecordService reportRecordService;
     private final ObjectMapper objectMapper;
+    private final PromptTemplateService promptTemplateService;
 
     private static final String REPORT_META_MARKER = "<!--REPORT_META:";
+    private static final int REFERENCE_CONTENT_MAX_CHARS = 30000;
 
     @PostConstruct
     public void init() {
@@ -259,7 +263,8 @@ public class ChatService {
             }
             String systemPrompt = buildSystemPrompt(
                     accumulatedSkillContext.toString() + errorContext,
-                    buildHistoryContext(convId)
+                    buildHistoryContext(convId),
+                    content
             );
 
             List<ConversationMessage> history = messageMapper.selectList(
@@ -283,7 +288,7 @@ public class ChatService {
                     },
                     error -> {
                         log.error("Chat stream failed", error);
-                        sink.emit(ChatEventVO.error(error.getMessage()));
+                        sink.emit(ChatEventVO.error(SAFE_CHAT_ERROR_MESSAGE));
                         sink.complete();
                     },
                     () -> {
@@ -311,7 +316,7 @@ public class ChatService {
             );
         } catch (Exception e) {
             log.error("Chat pipeline failed", e);
-            sink.emit(ChatEventVO.error(e.getMessage()));
+            sink.emit(ChatEventVO.error(SAFE_CHAT_ERROR_MESSAGE));
             sink.complete();
         }
     }
@@ -346,10 +351,18 @@ public class ChatService {
                 ref.setMessageId(messageId);
                 ref.setDocId(result.getSkillName());
                 ref.setDocTitle("[" + result.getSkillName() + "] 执行结果");
-                ref.setContent(result.getContent());
+                ref.setContent(truncateReferenceContent(result.getContent()));
                 referenceMapper.insert(ref);
             }
         }
+    }
+
+    private String truncateReferenceContent(String content) {
+        if (!StringUtils.hasText(content) || content.length() <= REFERENCE_CONTENT_MAX_CHARS) {
+            return content;
+        }
+        return content.substring(0, REFERENCE_CONTENT_MAX_CHARS)
+                + "\n\n[内容过长，已截断保存。请使用分页查询或导出功能查看完整结果。]";
     }
 
     private String buildHistoryContextForRouting(String conversationId) {
@@ -479,7 +492,18 @@ public class ChatService {
         );
     }
 
-    private String buildSystemPrompt(String skillContext, String historyContext) {
+    private String buildSystemPrompt(String skillContext, String historyContext, String query) {
+        return promptTemplateService.render(
+                "prompts/chat/answer-system.txt",
+                Map.of(
+                        "skillContext", skillContext == null ? "" : skillContext,
+                        "historyContext", historyContext == null ? "" : historyContext,
+                        "query", query == null ? "" : query
+                )
+        );
+    }
+
+    private String buildLegacySystemPrompt(String skillContext, String historyContext) {
         StringBuilder sb = new StringBuilder();
         sb.append("""
                 你是专利智能助手，运行在专利数据分析系统上。你拥有以下能力：
